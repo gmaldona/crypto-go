@@ -29,9 +29,40 @@ type Currency_t struct {
 	Explorer          string `json:"explorer"`
 }
 
-type Json_t struct {
+type jsonData struct {
 	Data      []Currency_t `json:"data"`
 	Timestamp int64        `json:"timestamp"`
+}
+
+/**
+@param:
+	- msg: error message to log to loggly
+*/
+func throwLogError(msg string) {
+	client := loggly.New("CryptoApi")
+	logErr := client.EchoSend("error", msg)
+	if logErr != nil {
+		os.Exit(1)
+	}
+}
+
+/**
+@param:
+	- body: string json response from the endpoint
+@return:
+	- []Currency_t: an array of currency_t structs representing the json response info
+
+*/
+func extractJsonData(body string) []Currency_t {
+	var jsonData jsonData
+	err := json.Unmarshal([]byte(body), &jsonData)
+
+	if err != nil {
+		throwLogError("Could not parse String into Json format.")
+		log.Fatalln(err)
+	}
+
+	return jsonData.Data
 }
 
 func main() {
@@ -41,67 +72,49 @@ func main() {
 		return
 	}
 	for {
-		fmt.Println(loggly.New("CryptoApi"))
-		fmt.Printf("Token: %s\n", os.Getenv("LOGGLY_TOKEN"))
-
 		fmt.Println("-----==== Starting HTTP worker ====-----")
 
+		// GET request on Endpoint
 		resp, err := http.Get("https://api.coincap.io/v2/assets")
+
 		if err != nil {
-			client := loggly.New("CryptoApi")
-			logErr := client.EchoSend("error", "Could not pull data from API.")
-			if logErr != nil {
-				return
-			}
+			throwLogError("Could not pull data from API.")
 			log.Fatalln(err)
 		}
 
 		body, err := ioutil.ReadAll(resp.Body)
+
 		if err != nil {
-			client := loggly.New("CryptoApi")
-			logErr := client.EchoSend("error", "Could not read data from the API.")
-			if logErr != nil {
-				return
-			}
+			throwLogError("Could not read data from the API.")
 			log.Fatalln(err)
 		}
 
 		bodyStr := string(body)
 
-		var json_t Json_t
-		err = json.Unmarshal([]byte(bodyStr), &json_t)
+		jsonData := extractJsonData(bodyStr)
 
-		if err != nil {
-			client := loggly.New("CryptoApi")
-			logErr := client.EchoSend("error", "Could not parse String into Json format.")
-			if logErr != nil {
-				return
-			}
-			log.Fatalln(err)
+		for i := 0; i < len(jsonData); i++ {
+			fmt.Printf("Id:\t\t\t%s\n", jsonData[i].Id)
+			fmt.Printf("Rank:\t\t\t%s\n", jsonData[i].Rank)
+			fmt.Printf("Symbol:\t\t\t%s\n", jsonData[i].Symbol)
+			fmt.Printf("Name:\t\t\t%s\n", jsonData[i].Name)
+			fmt.Printf("Supply:\t\t\t%s\n", jsonData[i].Supply)
+			fmt.Printf("Max Supply:\t\t%s\n", jsonData[i].MaxSupply)
+			fmt.Printf("Market Cap (USD):\t%s\n", jsonData[i].MarketCapUsd)
+			fmt.Printf("Volume 24 Hours (USD):\t%s\n", jsonData[i].VolumeUsd24Hr)
+			fmt.Printf("Price (USD):\t\t%s\n", jsonData[i].PriceUsd)
+			fmt.Printf("Change Percent 24 Hr: \t%s\n", jsonData[i].ChangePercent24Hr)
+			fmt.Printf("VWAP 24 Hours:\t\t%s\n\n", jsonData[i].Vwap24Hr)
 		}
 
-		for i := 0; i < len(json_t.Data); i++ {
-			fmt.Printf("Id : %s\n", json_t.Data[i].Id)
-			fmt.Printf("Rank : %s\n", json_t.Data[i].Rank)
-			fmt.Printf("Symbol : %s\n", json_t.Data[i].Symbol)
-			fmt.Printf("Name : %s\n", json_t.Data[i].Name)
-			fmt.Printf("Supply : %s\n", json_t.Data[i].Supply)
-			fmt.Printf("Max Supply : %s\n", json_t.Data[i].MaxSupply)
-			fmt.Printf("Market Cap (USD) : %s\n", json_t.Data[i].MarketCapUsd)
-			fmt.Printf("Volume 24 Hours (USD) : %s\n", json_t.Data[i].VolumeUsd24Hr)
-			fmt.Printf("Price (USD) : %s\n", json_t.Data[i].PriceUsd)
-			fmt.Printf("Change Percent 24 Hours : %s\n", json_t.Data[i].ChangePercent24Hr)
-			fmt.Printf("VWAP 24 Hours : %s\n\n", json_t.Data[i].Vwap24Hr)
-		}
-
+		// Send a Success messgae to Loggly
 		client := loggly.New("CryptoApi")
-		logErr := client.EchoSend("info", "Data polled. "+strconv.Itoa(len(json_t.Data)))
+		logErr := client.EchoSend("info", "Data polled. "+strconv.Itoa(len(jsonData)))
 		if logErr != nil {
 			println(logErr)
 			return
 		}
 
-		fmt.Println("Loggly Message Success.")
 		time.Sleep(1 * time.Minute)
 	}
 
