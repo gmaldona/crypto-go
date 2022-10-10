@@ -115,7 +115,7 @@ func main() {
 			return
 		}
 
-		time.Sleep(1 * time.Minute)
+		time.Sleep(60 * time.Second)
 	}
 
 }
