@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/joho/godotenv"
 	"io/ioutil"
 	"log"
@@ -13,6 +16,89 @@ import (
 
 	"github.com/jamespearly/loggly"
 )
+
+const DB_TABLE_NAME = "Maldonado-CryptoBro"
+
+func tableExists(tableName string, tableNames []*string) bool {
+	for _, name := range tableNames {
+		if tableName == *name {
+			return true
+		}
+	}
+	return false
+}
+
+func createTable(db *dynamodb.DynamoDB) {
+	_, err := db.CreateTable(&dynamodb.CreateTableInput{
+		AttributeDefinitions: []*dynamodb.AttributeDefinition{
+			{
+				AttributeName: aws.String("Id"),
+				AttributeType: aws.String("S"),
+			},
+		},
+		KeySchema: []*dynamodb.KeySchemaElement{
+			{
+				AttributeName: aws.String("Id"),
+				KeyType:       aws.String("HASH"),
+			},
+		},
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(1),
+			WriteCapacityUnits: aws.Int64(1),
+		},
+		TableName: aws.String("Maldonado-CryptoBro"),
+	})
+
+	if err != nil {
+		log.Println(err)
+		throwLogError("Could not create table in DynamoDB.")
+	}
+}
+
+func PutItem(currency Currency_t, tableName string, db *dynamodb.DynamoDB) {
+	_, err := db.PutItem(&dynamodb.PutItemInput{
+		Item: map[string]*dynamodb.AttributeValue{
+			"Id": {
+				S: aws.String(currency.Id),
+			},
+			"Rank": {
+				S: aws.String(currency.Rank),
+			},
+			"Symbol": {
+				S: aws.String(currency.Symbol),
+			},
+			"Name": {
+				S: aws.String(currency.Name),
+			},
+			"Supply": {
+				S: aws.String(currency.Supply),
+			},
+			"MaxSupply": {
+				S: aws.String(currency.MaxSupply),
+			},
+			"MarketCapUsd": {
+				S: aws.String(currency.MarketCapUsd),
+			},
+			"VolumeUsd24Hr": {
+				S: aws.String(currency.VolumeUsd24Hr),
+			},
+			"PriceUsd": {
+				S: aws.String(currency.PriceUsd),
+			},
+			"ChangePercent24Hr": {
+				S: aws.String(currency.ChangePercent24Hr),
+			},
+			"Vwap24Hr": {
+				S: aws.String(currency.Vwap24Hr),
+			},
+		},
+		TableName: aws.String(tableName),
+	})
+	if err != nil {
+		log.Println(err)
+		throwLogError("Could not make a DynamoDB table entry.")
+	}
+}
 
 type Currency_t struct {
 	Id                string `json:"id"`
@@ -107,9 +193,34 @@ func main() {
 			fmt.Printf("VWAP 24 Hours:\t\t%s\n\n", jsonData[i].Vwap24Hr)
 		}
 
-		// Send a Success messgae to Loggly
+		// Send a Success message to Loggly
 		client := loggly.New("CryptoApi")
 		logErr := client.EchoSend("info", "Data polled. "+strconv.Itoa(len(jsonData)))
+		if logErr != nil {
+			println(logErr)
+			return
+		}
+
+		// Open a new DynamoDB session
+		db := dynamodb.New(session.Must(session.NewSession(&aws.Config{
+			Region:   aws.String("us-east-1"),
+			Endpoint: aws.String("https://dynamodb.us-east-1.amazonaws.com"),
+		})))
+
+		tables, _ := db.ListTables(&dynamodb.ListTablesInput{})
+		tables.String()
+
+		if !tableExists(DB_TABLE_NAME, tables.TableNames) {
+			createTable(db)
+		}
+
+		for _, currency := range jsonData {
+			PutItem(currency, DB_TABLE_NAME, db)
+		}
+
+		// Send a Success message to Loggly
+		client = loggly.New("CryptoApi")
+		logErr = client.EchoSend("info", "Entered all currencies into database.")
 		if logErr != nil {
 			println(logErr)
 			return
