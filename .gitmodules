@@ -1,0 +1,3 @@
+[submodule "maldonado-crypto-server"]
+	path = maldonado-crypto-server
+	url = https://github.com/gmaldona/maldonado-crypto-server.git
