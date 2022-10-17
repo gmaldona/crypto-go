@@ -1,4 +1,4 @@
 .env
 dynamodb_conf.yml
-
+.DS_Store
 .idea/
