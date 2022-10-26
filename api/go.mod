@@ -1,4 +1,4 @@
-module cryto-app
+module cryptocurrency
 
 go 1.18
 

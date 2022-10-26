@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/jamespearly/loggly"
-)
 
-const DB_TABLE_NAME = "Maldonado-CryptoBro"
+	crypto "cryptocurrency/structs"
+)
 
 func tableExists(tableName string, tableNames []*string) bool {
 	for _, name := range tableNames {
@@ -55,7 +55,7 @@ func createTable(db *dynamodb.DynamoDB) {
 	}
 }
 
-func PutItem(currency Currency_t, tableName string, db *dynamodb.DynamoDB) {
+func PutItem(currency crypto.Currency_t, tableName string, db *dynamodb.DynamoDB) {
 	_, err := db.PutItem(&dynamodb.PutItemInput{
 		Item: map[string]*dynamodb.AttributeValue{
 			"Id": {
@@ -100,24 +100,9 @@ func PutItem(currency Currency_t, tableName string, db *dynamodb.DynamoDB) {
 	}
 }
 
-type Currency_t struct {
-	Id                string `json:"id"`
-	Rank              string `json:"rank"`
-	Symbol            string `json:"symbol"`
-	Name              string `json:"name"`
-	Supply            string `json:"supply"`
-	MaxSupply         string `json:"maxSupply"`
-	MarketCapUsd      string `json:"marketCapUsd"`
-	VolumeUsd24Hr     string `json:"volumeUsd24Hr"`
-	PriceUsd          string `json:"priceUsd"`
-	ChangePercent24Hr string `json:"changePercent24Hr"`
-	Vwap24Hr          string `json:"vwap24Hr"`
-	Explorer          string `json:"explorer"`
-}
-
 type jsonData struct {
-	Data      []Currency_t `json:"data"`
-	Timestamp int64        `json:"timestamp"`
+	Data      []crypto.Currency_t `json:"data"`
+	Timestamp int64               `json:"timestamp"`
 }
 
 /**
@@ -139,7 +124,7 @@ func throwLogError(msg string) {
 	- []Currency_t: an array of currency_t structs representing the json response info
 
 */
-func extractJsonData(body string) []Currency_t {
+func extractJsonData(body string) []crypto.Currency_t {
 	var jsonData jsonData
 	err := json.Unmarshal([]byte(body), &jsonData)
 
@@ -210,12 +195,12 @@ func main() {
 		tables, _ := db.ListTables(&dynamodb.ListTablesInput{})
 		tables.String()
 
-		if !tableExists(DB_TABLE_NAME, tables.TableNames) {
+		if !tableExists(crypto.DB_TABLE_NAME, tables.TableNames) {
 			createTable(db)
 		}
 
 		for _, currency := range jsonData {
-			PutItem(currency, DB_TABLE_NAME, db)
+			PutItem(currency, crypto.DB_TABLE_NAME, db)
 		}
 
 		// Send a Success message to Loggly
