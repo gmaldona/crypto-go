@@ -6,7 +6,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/joho/godotenv"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -152,11 +151,7 @@ func extractJsonData(body string) []Currency_t {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+
 	for {
 		fmt.Println("-----==== Starting HTTP worker ====-----")
 
